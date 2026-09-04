@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MASTER CHANGELOG - GLOBAL-DATABASE-MIGRATIONS
+  ===============================================
+  This file is the single entry point Liquibase is pointed at. It contains NO
+  changesets of its own; it only includes one changelog per dated batch, in
+  the order the batches were made.
+
+  HOW TO ADD A SCHEMA CHANGE
+  ==========================
+    1. NEVER edit a .sql file that has already been applied to any environment.
+       Liquibase records a checksum per changeset; editing one breaks every
+       database that already ran it.
+    2. Create (or reuse) a dated folder under Migrations/, e.g. Migrations/2026-Q4-Oct/.
+    3. Add a numbered formatted-SQL file there (e.g. 10_01_01-add-xyz-column.sql).
+    4. <include> it from that folder's sub_changelog.xml.
+    5. <include> that sub_changelog.xml here, after the previous batch.
+    6. Commit everything. This repository - not the live database - is the
+       source of truth for the schema. See README.md.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Schema the whole application lives in. Overridable with
+         -Dschema.name=... but it must match the app's NWPD_DB_SCHEMA. -->
+    <property name="schema.name" value="nw_prod" global="true"/>
+
+    <include file="Migrations/2026-Q3-Sep/sub_changelog.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

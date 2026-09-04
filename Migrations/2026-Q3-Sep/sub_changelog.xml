@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  2026-Q3-Sep - PD-048
+  Initial PostgreSQL schema replacing the Excel workbooks:
+      data/ProdDB/ProdStagesTracking.xlsx
+      data/CentralDB/2024/CentralDB.xlsx
+      data/ProdDB/2024/NW/<batch>_<date>.xlsx
+      data/ShippingDB/2024/<batch>_<date>.xlsx
+  Files are applied in the order listed below. Do not reorder or edit them
+  once they have been applied anywhere.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <include file="09_04_01-create-schema.sql"             relativeToChangelogFile="true"/>
+    <include file="09_04_02-create-functions.sql"          relativeToChangelogFile="true"/>
+    <include file="09_04_03-create-prod-stage.sql"         relativeToChangelogFile="true"/>
+    <include file="09_04_04-create-propeller.sql"          relativeToChangelogFile="true"/>
+    <include file="09_04_05-create-prop-tracking.sql"      relativeToChangelogFile="true"/>
+    <include file="09_04_06-create-prop-stage-event.sql"   relativeToChangelogFile="true"/>
+    <include file="09_04_07-create-prop-central.sql"       relativeToChangelogFile="true"/>
+    <include file="09_04_08-create-prod-batch-entry.sql"   relativeToChangelogFile="true"/>
+    <include file="09_04_09-create-shipping-batch-entry.sql" relativeToChangelogFile="true"/>
+    <include file="09_04_10-seed-prod-stage.sql"           relativeToChangelogFile="true"/>
+    <include file="09_04_11-create-views.sql"              relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

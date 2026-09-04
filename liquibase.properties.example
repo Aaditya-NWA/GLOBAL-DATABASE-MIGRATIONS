@@ -1,0 +1,30 @@
+# Liquibase CLI defaults.
+#
+#   cp liquibase.properties.example liquibase.properties
+#   # edit the credentials, then:
+#   liquibase --defaults-file=liquibase.properties update
+#
+# liquibase.properties is gitignored because it holds a password. In CI, pass
+# --url/--username/--password on the command line from secrets instead.
+
+changelog-file: master_changelog.xml
+
+# Liquibase 5.x does not bundle database drivers. Fetch it once with
+# scripts/fetch-jdbc-driver.ps1 (or .sh); drivers/ is gitignored.
+classpath: drivers/postgresql-42.7.9.jar
+
+url: jdbc:postgresql://localhost:5432/nw_production
+username: nw_app
+password: change-me
+
+# Substituted for ${schema.name} in the changesets. Must match the
+# application's NWPD_DB_SCHEMA.
+parameter.schema.name: nw_prod
+
+# Liquibase's own bookkeeping tables. They record which changesets have run and
+# their checksums - never edit them by hand, and never delete rows to "re-run" a
+# migration; write a new changeset instead.
+database-changelog-table-name: databasechangelog
+database-changelog-lock-table-name: databasechangeloglock
+
+log-level: INFO
