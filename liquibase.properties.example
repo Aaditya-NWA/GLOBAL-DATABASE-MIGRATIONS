@@ -14,7 +14,10 @@ changelog-file: master_changelog.xml
 classpath: drivers/postgresql-42.7.9.jar
 
 url: jdbc:postgresql://localhost:5432/nw_production
-username: nw_app
+# Liquibase runs as the MIGRATOR login, which owns the database and every
+# object in it. Never run it as the application login (nw_app): that login has
+# no DDL rights by design.
+username: nw_migrator
 password: change-me
 
 # Substituted for ${schema.name} in the changesets. Must match the

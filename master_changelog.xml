@@ -28,6 +28,11 @@
          -Dschema.name=... but it must match the app's NWPD_DB_SCHEMA. -->
     <property name="schema.name" value="nw_prod" global="true"/>
 
+    <!-- The application's runtime login, which the grants changesets grant to.
+         Overridable with -Dapp.role.name=... ; it must match the app's
+         NWPD_DB_USER. Liquibase itself runs as the migrator login, never as this. -->
+    <property name="app.role.name" value="nw_app" global="true"/>
+
     <include file="Migrations/2026-Q3-Sep/sub_changelog.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

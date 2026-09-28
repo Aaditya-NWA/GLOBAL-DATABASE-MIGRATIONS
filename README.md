@@ -24,6 +24,68 @@ liquibase --defaults-file=liquibase.properties update
 `liquibase.properties` and `drivers/` are gitignored — never commit real
 credentials or the downloaded jar.
 
+Liquibase always runs as the **migrator** login (`nw_migrator`), never as an
+application login. See the next section.
+
+## Database accounts
+
+Every database has two kinds of login. Neither is created by a changeset,
+because `CREATE ROLE ... PASSWORD` would put a password in git.
+
+| Login | Who uses it | Rights |
+|-------|-------------|--------|
+| `nw_migrator` | Liquibase (this repo) | Owns the database and every schema, table, view and function in it. The only login that can change schema. |
+| `nw_app` | The NW Production Dashboard | Read/write on its data tables, read-only on reference data and views, read-only on `auth` except stamping `last_login_at`. No DDL, no `TRUNCATE`, cannot create users or change roles. |
+
+The grants live in `Migrations/2026-Q3-Sep/09_28_07-grants.sql`. It HALTs if
+the application login does not exist yet. The application login's name comes
+from the `app.role.name` property in `master_changelog.xml` (default `nw_app`).
+
+One-time setup on a new server, as a superuser (`postgres`), in `psql`:
+
+```sql
+CREATE ROLE nw_migrator LOGIN;
+\password nw_migrator
+CREATE ROLE nw_app LOGIN;
+\password nw_app
+CREATE DATABASE nw_production OWNER nw_migrator;
+```
+
+`\password` prompts for the password instead of taking it on the command line,
+so it never lands in shell history. After that no superuser is needed: run
+`liquibase update` as `nw_migrator`, which creates everything and grants
+`nw_app` its access.
+
+## Shared login schema: `auth`
+
+`auth` holds users and their roles for **every** application in the database,
+so a person has one account (one password, one place to deactivate them)
+regardless of how many apps they use.
+
+| Table | Holds |
+|-------|-------|
+| `auth.app` | one row per application (`nw_prod_dashboard`, ...) |
+| `auth.app_role` | the roles each application recognises |
+| `auth.app_user` | one row per person: username, name, email, bcrypt `password_hash`, `is_active`, `last_login_at` |
+| `auth.user_app_role` | which role a person holds in which application |
+
+Rules:
+
+- **One role per person per application.** Enforced by
+  `uq_user_app_role_one_role`. To allow several roles later, drop that
+  constraint in a new changeset — but the application must first be able to
+  handle a user with more than one role.
+- **Usernames are case-insensitive**, via a unique index on `lower(username)`.
+  Any query that looks a user up must compare `lower(username) = lower(:input)`.
+- **No users or password hashes are ever put in a changeset.** Only
+  applications and their roles are seeded here. Users are loaded by each
+  application's own import tooling (the dashboard's is
+  `database/migration/importUsers.py`), running as `nw_migrator`.
+- **Applications may only read `auth`**, apart from stamping `last_login_at`.
+  Adding users or changing roles is an admin action done as `nw_migrator`.
+- Adding a second application: a new changeset inserting its `auth.app` row
+  and its `auth.app_role` rows, plus grants for its login.
+
 ## How application repos use this
 
 1. **This repo defines and applies the schema.** Someone with database
