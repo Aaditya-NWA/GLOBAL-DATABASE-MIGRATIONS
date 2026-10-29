@@ -12,12 +12,13 @@
 -- accounts"). If the application login does not exist, these changesets HALT
 -- instead of failing half-way.
 
---changeset nwpd:PD-048-018-grants-app-schema
+--changeset nwpd:PD-048-015-grants-app-schema
 --preconditions onFail:HALT onError:HALT
 --precondition-sql-check expectedResult:1 SELECT count(*) FROM pg_roles WHERE rolname = '${app.role.name}'
 --comment: Application data. prod_stage is Liquibase-owned reference data, so the
 --comment: app may only read it. The two views are listed explicitly: a view runs
 --comment: with its owner's rights, but the caller still needs SELECT on the view.
+--comment: The login tables (app_user, app_role) are granted separately below.
 GRANT USAGE ON SCHEMA ${schema.name} TO ${app.role.name};
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     ${schema.name}.propeller,
@@ -35,29 +36,29 @@ GRANT SELECT ON
 --rollback REVOKE ALL ON ALL TABLES IN SCHEMA ${schema.name} FROM ${app.role.name};
 --rollback REVOKE USAGE ON SCHEMA ${schema.name} FROM ${app.role.name};
 
---changeset nwpd:PD-048-018-grants-app-schema-defaults
+--changeset nwpd:PD-048-015-grants-app-schema-defaults
 --comment: Tables created later in the app schema by the migrator are readable and
 --comment: writable by the app without a separate GRANT changeset. Tighten a
---comment: specific table afterwards (REVOKE) if it is reference data.
+--comment: specific table afterwards (REVOKE ALL, then GRANT what it needs) if it is
+--comment: reference data or holds logins - see PD-048-015-grants-app-user.
 --comment: No sequence grants are needed: every key is GENERATED ALWAYS AS IDENTITY.
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema.name}
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${app.role.name};
 --rollback ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema.name} REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM ${app.role.name};
 
---changeset nwpd:PD-048-018-grants-auth
+--changeset nwpd:PD-048-015-grants-app-user
 --preconditions onFail:HALT onError:HALT
 --precondition-sql-check expectedResult:1 SELECT count(*) FROM pg_roles WHERE rolname = '${app.role.name}'
 --comment: Logins. The app can look users up and stamp last_login_at - nothing
---comment: else. It cannot add users, change passwords or roles, or read another
---comment: application's rows any differently than its own. Deliberately NO
---comment: default privileges on auth: every auth grant is explicit.
-GRANT USAGE ON SCHEMA auth TO ${app.role.name};
-GRANT SELECT ON
-    auth.app,
-    auth.app_role,
-    auth.app_user,
-    auth.user_app_role
-    TO ${app.role.name};
-GRANT UPDATE (last_login_at) ON auth.app_user TO ${app.role.name};
---rollback REVOKE ALL ON ALL TABLES IN SCHEMA auth FROM ${app.role.name};
---rollback REVOKE USAGE ON SCHEMA auth FROM ${app.role.name};
+--comment: else. It cannot add users, change passwords or roles, or edit the role
+--comment: list; those are admin actions done as the migrator.
+--comment: REVOKE ALL comes first on purpose. If these tables were ever created
+--comment: after the default privileges above (a different changeset order, or a
+--comment: database where they already existed), the app would have inherited
+--comment: INSERT/UPDATE/DELETE on them. And a column-level UPDATE grant restricts
+--comment: nothing while a table-wide UPDATE grant exists. Revoking first makes the
+--comment: result the same whatever order the database was built in.
+REVOKE ALL ON ${schema.name}.app_role, ${schema.name}.app_user FROM ${app.role.name};
+GRANT SELECT ON ${schema.name}.app_role, ${schema.name}.app_user TO ${app.role.name};
+GRANT UPDATE (last_login_at) ON ${schema.name}.app_user TO ${app.role.name};
+--rollback REVOKE ALL ON ${schema.name}.app_role, ${schema.name}.app_user FROM ${app.role.name};

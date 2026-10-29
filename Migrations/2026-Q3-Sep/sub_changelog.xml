@@ -27,15 +27,13 @@
     <include file="09_04_10-seed-prod-stage.sql"           relativeToChangelogFile="true"/>
     <include file="09_04_11-create-views.sql"              relativeToChangelogFile="true"/>
 
-    <!-- PD-048: shared login schema (auth) and least-privilege grants.
-         Users and roles move out of the Secrets Manager secret into auth.*;
+    <!-- PD-048: login tables and least-privilege grants.
+         Users and roles move out of the Secrets Manager secret into the app's
+         own schema (app_role, app_user - one role per user);
          nw_migrator owns everything, nw_app only gets data access. -->
-    <include file="09_28_01-create-auth-schema.sql"        relativeToChangelogFile="true"/>
-    <include file="09_28_02-create-auth-functions.sql"     relativeToChangelogFile="true"/>
-    <include file="09_28_03-create-auth-app-and-role.sql"  relativeToChangelogFile="true"/>
-    <include file="09_28_04-create-auth-app-user.sql"      relativeToChangelogFile="true"/>
-    <include file="09_28_05-create-auth-user-app-role.sql" relativeToChangelogFile="true"/>
-    <include file="09_28_06-seed-auth-app-and-role.sql"    relativeToChangelogFile="true"/>
-    <include file="09_28_07-grants.sql"                    relativeToChangelogFile="true"/>
+    <include file="09_28_01-create-app-role.sql"           relativeToChangelogFile="true"/>
+    <include file="09_28_02-create-app-user.sql"           relativeToChangelogFile="true"/>
+    <include file="09_28_03-seed-app-role.sql"             relativeToChangelogFile="true"/>
+    <include file="09_28_04-grants.sql"                    relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

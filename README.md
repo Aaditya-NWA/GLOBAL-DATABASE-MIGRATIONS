@@ -35,9 +35,9 @@ because `CREATE ROLE ... PASSWORD` would put a password in git.
 | Login | Who uses it | Rights |
 |-------|-------------|--------|
 | `nw_migrator` | Liquibase (this repo) | Owns the database and every schema, table, view and function in it. The only login that can change schema. |
-| `nw_app` | The NW Production Dashboard | Read/write on its data tables, read-only on reference data and views, read-only on `auth` except stamping `last_login_at`. No DDL, no `TRUNCATE`, cannot create users or change roles. |
+| `nw_app` | The NW Production Dashboard | Read/write on its data tables, read-only on reference data and views, read-only on the login tables (`app_user`, `app_role`) except stamping `last_login_at`. No DDL, no `TRUNCATE`, cannot create users or change roles. |
 
-The grants live in `Migrations/2026-Q3-Sep/09_28_07-grants.sql`. It HALTs if
+The grants live in `Migrations/2026-Q3-Sep/09_28_04-grants.sql`. It HALTs if
 the application login does not exist yet. The application login's name comes
 from the `app.role.name` property in `master_changelog.xml` (default `nw_app`).
 
@@ -56,35 +56,36 @@ so it never lands in shell history. After that no superuser is needed: run
 `liquibase update` as `nw_migrator`, which creates everything and grants
 `nw_app` its access.
 
-## Shared login schema: `auth`
+## Login tables (per application)
 
-`auth` holds users and their roles for **every** application in the database,
-so a person has one account (one password, one place to deactivate them)
-regardless of how many apps they use.
+Each application keeps its own login users and roles **inside its own schema**
+(for the production dashboard: `nw_prod`). Nothing about logins is shared
+between applications: a person who uses two apps has an account in each.
 
 | Table | Holds |
 |-------|-------|
-| `auth.app` | one row per application (`nw_prod_dashboard`, ...) |
-| `auth.app_role` | the roles each application recognises |
-| `auth.app_user` | one row per person: username, name, email, bcrypt `password_hash`, `is_active`, `last_login_at` |
-| `auth.user_app_role` | which role a person holds in which application |
+| `<schema>.app_role` | the roles this application recognises (seeded by a changeset) |
+| `<schema>.app_user` | one row per person: username, name, email, bcrypt `password_hash`, `role_code`, `is_active`, `last_login_at` |
 
 Rules:
 
-- **One role per person per application.** Enforced by
-  `uq_user_app_role_one_role`. To allow several roles later, drop that
-  constraint in a new changeset — but the application must first be able to
-  handle a user with more than one role.
+- **One role per user.** `app_user.role_code` is a single `NOT NULL` column
+  with a foreign key to `app_role`, so a user always has exactly one role,
+  and only a role the application knows about.
 - **Usernames are case-insensitive**, via a unique index on `lower(username)`.
   Any query that looks a user up must compare `lower(username) = lower(:input)`.
-- **No users or password hashes are ever put in a changeset.** Only
-  applications and their roles are seeded here. Users are loaded by each
-  application's own import tooling (the dashboard's is
-  `database/migration/importUsers.py`), running as `nw_migrator`.
-- **Applications may only read `auth`**, apart from stamping `last_login_at`.
-  Adding users or changing roles is an admin action done as `nw_migrator`.
-- Adding a second application: a new changeset inserting its `auth.app` row
-  and its `auth.app_role` rows, plus grants for its login.
+- **No users or password hashes are ever put in a changeset.** Only the roles
+  are seeded here. Users are loaded by the application's own import tooling
+  (the dashboard's is `database/migration/importUsers.py`), running as
+  `nw_migrator`.
+- **The application may only read these tables**, apart from stamping
+  `last_login_at`. Adding users, changing passwords or roles, and editing the
+  role list are admin actions done as `nw_migrator`.
+- **Default privileges do not cover them.** The app schema's default
+  privileges give the app read/write on every new table, so the login tables'
+  grants start with `REVOKE ALL` and then grant only what is needed. Do the
+  same for any future table the app must not write to.
+- Adding a role: a new changeset inserting it into `app_role`.
 
 ## How application repos use this
 
